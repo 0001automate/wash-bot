@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Wash Bot - Auftragsnummer Scanner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <script async src="https://cdn.jsdelivr.net/npm/tesseract.js@v2"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #0a0e27;
+      color: #fff;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    #container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+    }
+    
+    /* HEADER */
+    .header {
+      padding: 8px 16px;
+      background: rgba(0, 0, 0, 0.5);
+      border-bottom: 1px solid rgba(0, 200, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      min-height: 80px;
+    }
+    
+    .logo {
+      max-height: 120px;
+      max-width: 100%;
+      width: auto;
+      object-fit: contain;
+    }
+    
+    /* TAB BUTTONS */
+    .tabButtons {
+      display: flex;
+      gap: 8px;
+      padding: 10px 16px;
+      background: rgba(0, 0, 0, 0.2);
+      flex-shrink: 0;
+      border-bottom: 1px solid rgba(0, 200, 255, 0.1);
+    }
+    
+    .tabBtn {
+      flex: 1;
+      padding: 8px 6px;
+      font-size: 0.9rem;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.08);
+      color: #999;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    
+    .tabBtn.active {
+      background: linear-gradient(135deg, #00c8ff 0%, #0096d6 100%);
+      color: white;
+      border-color: #00c8ff;
+      box-shadow: 0 0 12px rgba(0, 200, 255, 0.3);
+    }
+    
+    .tabBtn:active {
+      transform: scale(0.98);
+    }
+    
+    /* CONTENT */
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    .tab {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    .tab.active {
+      display: flex;
+    }
+    
+    /* VIDEO */
+    #videoContainer {
+      position: relative;
+      width: 100%;
+      height: 200px;
+      background: #000;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid rgba(0, 200, 255, 0.3);
+      flex-shrink: 0;
+    }
+    
+    #video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+    }
+    
+    #focusGuide {
+      position: absolute;
+      top: 50%;
+      left: 10%;
+      width: 80%;
+      height: 70%;
+      border: 3px dashed #00ff00;
+      border-radius: 8px;
+      pointer-events: none;
+      color: #00ff00;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      text-shadow: 2px 2px 4px #000;
+      box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.15);
+      transform: translateY(-50%);
+    }
+    
+    #canvas {
+      display: none;
+    }
+    
+    /* MANUAL TAB */
+    .manual-tab {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 40px 20px;
+    }
+    
+    #manualInput {
+      width: 100%;
+      max-width: 300px;
+      padding: 16px;
+      font-size: 1.2rem;
+      background: rgba(255, 255, 255, 0.08);
+      border: 2px solid rgba(0, 200, 255, 0.3);
+      border-radius: 8px;
+      color: #fff;
+      text-align: center;
+      font-family: 'Courier New', monospace;
+      margin-bottom: 20px;
+      transition: all 0.2s;
+    }
+    
+    #manualInput:focus {
+      outline: none;
+      background: rgba(255, 255, 255, 0.12);
+      border-color: #00c8ff;
+      box-shadow: 0 0 12px rgba(0, 200, 255, 0.2);
+    }
+    
+    #manualInput::placeholder {
+      color: #666;
+    }
+    
+    /* CONFIG TAB */
+    .config-tab {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    
+    .config-section {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(0, 200, 255, 0.2);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .config-section h3 {
+      color: #00c8ff;
+      margin-bottom: 15px;
+    }
+    
+    .config-section label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #00c8ff;
+      font-size: 0.9rem;
+    }
+    
+    .config-section input {
+      width: 100%;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(0, 200, 255, 0.2);
+      border-radius: 6px;
+      color: #fff;
+      font-size: 0.95rem;
+      margin-bottom: 12px;
+      font-family: monospace;
+    }
+    
+    .config-section input:focus {
+      outline: none;
+      background: rgba(255, 255, 255, 0.12);
+      border-color: #00c8ff;
+      box-shadow: 0 0 8px rgba(0, 200, 255, 0.2);
+    }
+
+    .config-info {
+      background: rgba(0, 200, 255, 0.1);
+      border-left: 3px solid #00c8ff;
+      padding: 12px;
+      margin-bottom: 12px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      color: #00c8ff;
+      line-height: 1.5;
+    }
+
+    .config-info a {
+      color: #00c8ff;
+      text-decoration: underline;
+    }
+
+    .config-info strong {
+      display: block;
+      margin-bottom: 8px;
+    }
+    
+    .config-controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    
+    .config-controls button {
+      background: linear-gradient(135deg, #00c8ff 0%, #0096d6 100%);
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .config-controls button:active {
+      transform: scale(0.98);
+    }
+
+    .config-controls button:disabled {
+      background: #555;
+      cursor: not-allowed;
+    }
+    
+    /* STATUS */
+    #status {
+      padding: 12px;
+      text-align: center;
+      font-weight: 600;
+      color: white;
+      background: rgba(0, 0, 0, 0.4);
+      border-top: 1px solid rgba(0, 200, 255, 0.1);
+      border-bottom: 1px solid rgba(0, 200, 255, 0.1);
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+      font-size: 0.95rem;
+    }
+    
+    .status-info { color: #00c8ff; }
+    .status-error { color: #ff4444; }
+    .status-success { color: #44ff44; }
+    
+    /* OUTPUT */
+    #auftrag {
+      padding: 14px;
+      text-align: center;
+      font-size: 1.4rem;
+      background: rgba(0, 200, 255, 0.1);
+      border: 2px solid rgba(0, 200, 255, 0.3);
+      color: #00c8ff;
+      font-weight: bold;
+      font-family: 'Courier New', monospace;
+      flex-shrink: 0;
+    }
+    
+    /* VERLAUF */
+    .history-section {
+      background: rgba(0, 0, 0, 0.3);
+      border-top: 1px solid rgba(0, 200, 255, 0.2);
+      padding: 10px 16px;
+      flex-shrink: 0;
+      max-height: 100px;
+      overflow-y: auto;
+    }
+    
+    .history-title {
+      font-size: 0.8rem;
+      color: #00c8ff;
+      font-weight: 600;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .clear-history-btn {
+      background: rgba(255, 68, 68, 0.3);
+      border: 1px solid rgba(255, 68, 68, 0.5);
+      color: #ff4444;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .clear-history-btn:hover {
+      background: rgba(255, 68, 68, 0.5);
+    }
+    
+    .history-item {
+      background: rgba(0, 200, 255, 0.1);
+      border: 1px solid rgba(0, 200, 255, 0.2);
+      padding: 8px 10px;
+      border-radius: 4px;
+      margin-bottom: 4px;
+      font-size: 0.9rem;
+      font-family: 'Courier New', monospace;
+      color: #00ff88;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .history-number {
+      font-weight: bold;
+      font-size: 1rem;
+    }
+    
+    .history-time {
+      font-size: 0.75rem;
+      color: #666;
+      margin-left: 10px;
+    }
+    
+    .history-status {
+      font-size: 0.75rem;
+      color: #44ff44;
+      margin-left: 8px;
+    }
+    
+    /* CONTROLS */
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 12px 16px;
+      background: rgba(0, 0, 0, 0.3);
+      border-top: 1px solid rgba(0, 200, 255, 0.1);
+      flex-shrink: 0;
+    }
+    
+    .controls button {
+      padding: 10px 12px;
+      font-size: 0.9rem;
+      border: none;
+      border-radius: 6px;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    #scanBtn {
+      background: linear-gradient(135deg, #00c8ff 0%, #0096d6 100%);
+      grid-column: 1 / -1;
+    }
+    
+    #scanBtn:active {
+      transform: scale(0.98);
+    }
+    
+    #scanBtn:disabled {
+      background: #555;
+      cursor: not-allowed;
+    }
+    
+    #historyBtn {
+      background: rgba(0, 200, 255, 0.2);
+      border: 1px solid rgba(0, 200, 255, 0.3);
+    }
+    
+    /* DEBUG */
+    .debug-toggle {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: rgba(0, 200, 255, 0.2);
+      border: 2px solid rgba(0, 200, 255, 0.4);
+      color: #00c8ff;
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    
+    #debugInfo {
+      position: fixed;
+      bottom: 80px;
+      right: 20px;
+      width: 280px;
+      max-height: 400px;
+      background: rgba(0, 0, 0, 0.95);
+      border: 2px solid rgba(0, 200, 255, 0.5);
+      border-radius: 8px;
+      padding: 12px;
+      overflow-y: auto;
+      font-size: 0.75rem;
+      font-family: 'Courier New', monospace;
+      color: #00ff88;
+      display: none;
+      z-index: 999;
+      box-shadow: 0 0 20px rgba(0, 200, 255, 0.2);
+    }
+    
+    #debugInfo.show {
+      display: block;
+    }
+    
+    .debug-line {
+      padding: 3px 0;
+      color: #00ff88;
+      border-bottom: 1px solid rgba(0, 200, 255, 0.1);
+    }
+    
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 200, 255, 0.1);
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: rgba(0, 200, 255, 0.4);
+      border-radius: 3px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 200, 255, 0.6);
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <!-- HEADER -->
+    <div class="header">
+      <img src="https://i.imgur.com/pel4aYe.png" class="logo" alt="Wash Bot" id="logoImg">
+    </div>
+
+    <!-- TABS -->
+    <div class="tabButtons">
+      <button class="tabBtn active" onclick="switchTab('ocr')">📷 Scan</button>
+      <button class="tabBtn" onclick="switchTab('manual')">✏️ Manuell</button>
+      <button class="tabBtn" onclick="switchTab('config')">⚙️ Config</button>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+      <!-- SCAN TAB -->
+      <div id="ocr" class="tab active">
+        <div id="videoContainer">
+          <video id="video" playsinline muted></video>
+          <div id="focusGuide">📍 NR</div>
+        </div>
+        <canvas id="canvas"></canvas>
+
+        <div id="status" class="status-info">📱 Ready</div>
+
+        <input id="auftrag" placeholder="---" readonly>
+
+        <div class="controls">
+          <button id="scanBtn" onclick="startScanning()">🔍 Scan</button>
+          <button id="historyBtn" onclick="toggleHistory()">📋 Verlauf</button>
+        </div>
+
+        <div class="history-section" id="historySection" style="display: none;">
+          <div class="history-title">
+            <span>📊 Letzte 5 Aufträge</span>
+            <button class="clear-history-btn" onclick="clearHistory()">🗑️ Löschen</button>
+          </div>
+          <div id="historyList">Keine Aufträge</div>
+        </div>
+      </div>
+
+      <!-- MANUAL TAB -->
+      <div id="manual" class="tab">
+        <div class="manual-tab">
+          <input id="manualInput" type="text" placeholder="Auftragsnummer eingeben" maxlength="9">
+          <button onclick="useManualInput()" style="background: linear-gradient(135deg, #00c8ff 0%, #0096d6 100%); color: white; border: none; padding: 12px 30px; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; width: 100%; max-width: 300px;">Senden</button>
+        </div>
+      </div>
+
+      <!-- CONFIG TAB -->
+      <div id="config" class="tab">
+        <div class="config-tab">
+          <div class="config-section">
+            <h3>📧 Email Konfiguration</h3>
+            
+            <label>🔑 Resend API Key</label>
+            <input id="resendApiKey" type="password" placeholder="re_xxxxxxxxxxxxx">
+
+            <div class="config-info">
+              <strong>ℹ️ Resend API Key:</strong>
+              1. Gehe zu <a href="https://resend.com" target="_blank">resend.com</a><br>
+              2. Melde dich an / registriere dich<br>
+              3. Gehe zu Settings → API Keys<br>
+              4. Kopiere deinen API Key (beginnt mit "re_")
+            </div>
+            
+            <label>🔗 Netlify Function URL</label>
+            <input id="netlifyUrl" type="text" placeholder="https://your-site.netlify.app">
+
+            <div class="config-info">
+              <strong>ℹ️ Netlify URL:</strong>
+              Diese URL erhältst du nach dem Deploy.<br>
+              Format: <code>https://your-sitename.netlify.app</code>
+            </div>
+            
+            <label>📧 Von-Adresse</label>
+            <input id="fromEmail" type="email" placeholder="noreply@example.com">
+
+            <div class="config-info">
+              <strong>ℹ️ Von-Adresse:</strong>
+              Diese Adresse muss in Resend verifiziert sein.<br>
+              Neue Accounts: verwende <code>onboarding@resend.dev</code>
+            </div>
+            
+            <label>📮 Zu-Adresse</label>
+            <input id="toEmail" type="email" placeholder="empfaenger@example.com">
+            
+            <label>Logo URL (optional)</label>
+            <input id="logoUrl" type="text" placeholder="https://example.com/logo.png">
+            
+            <div class="config-controls">
+              <button id="testBtn" onclick="testConfig()">🧪 Test</button>
+              <button onclick="saveConfig()">💾 Speichern</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEBUG -->
+  <button class="debug-toggle" onclick="toggleDebug()">🐛</button>
+  <div id="debugInfo"></div>
+
+  <script>
+    const videoElement = document.getElementById('video');
+    const canvasElement = document.getElementById('canvas');
+    const statusElement = document.getElementById('status');
+    const auftragElement = document.getElementById('auftrag');
+    const manualInputElement = document.getElementById('manualInput');
+    const scanBtn = document.getElementById('scanBtn');
+    const testBtn = document.getElementById('testBtn');
+    const resendApiKeyInput = document.getElementById('resendApiKey');
+    const netlifyUrlInput = document.getElementById('netlifyUrl');
+    const fromEmailInput = document.getElementById('fromEmail');
+    const toEmailInput = document.getElementById('toEmail');
+    const logoUrlInput = document.getElementById('logoUrl');
+    const logoImg = document.getElementById('logoImg');
+    const historySection = document.getElementById('historySection');
+    const historyList = document.getElementById('historyList');
+    const debugInfo = document.getElementById('debugInfo');
+    
+    let scanning = false;
+    let scanAttempts = 0;
+    let lastRecognized = '';
+    let lastRecognizedTime = 0;
+    let history = [];
+    let debugLog = [];
+    let debugShown = false;
+    let confidenceThreshold = 0.65;
+
+    window.addEventListener('DOMContentLoaded', function() {
+      const savedApiKey = localStorage.getItem('resendApiKey');
+      const savedNetlifyUrl = localStorage.getItem('netlifyUrl');
+      const savedFromEmail = localStorage.getItem('fromEmail');
+      const savedToEmail = localStorage.getItem('toEmail');
+      const savedLogo = localStorage.getItem('logoUrl');
+      
+      if (savedApiKey) resendApiKeyInput.value = savedApiKey;
+      if (savedNetlifyUrl) netlifyUrlInput.value = savedNetlifyUrl;
+      if (savedFromEmail) fromEmailInput.value = savedFromEmail;
+      if (savedToEmail) toEmailInput.value = savedToEmail;
+      if (savedLogo) {
+        logoUrlInput.value = savedLogo;
+        logoImg.src = savedLogo;
+      }
+      
+      loadHistoryFromStorage();
+      log('✅ App gestartet');
+    });
+
+    function loadHistoryFromStorage() {
+      const saved = localStorage.getItem('scanHistory');
+      if (saved) {
+        history = JSON.parse(saved);
+        updateHistoryDisplay();
+        log(`📋 ${history.length} Aufträge aus Speicher geladen`);
+      }
+    }
+
+    function saveHistoryToStorage() {
+      localStorage.setItem('scanHistory', JSON.stringify(history));
+      log(`💾 Verlauf gespeichert (${history.length} Einträge)`);
+    }
+
+    function clearHistory() {
+      if (confirm('Verlauf wirklich löschen?')) {
+        history = [];
+        localStorage.removeItem('scanHistory');
+        updateHistoryDisplay();
+        log('🗑️ Verlauf gelöscht');
+      }
+    }
+
+    function log(message) {
+      const timestamp = new Date().toLocaleTimeString();
+      const logEntry = `[${timestamp}] ${message}`;
+      debugLog.unshift(logEntry);
+      if (debugLog.length > 30) debugLog.pop();
+      
+      updateDebugDisplay();
+      console.log(message);
+    }
+
+    function updateDebugDisplay() {
+      if (debugShown) {
+        debugInfo.innerHTML = debugLog.map(msg => `<div class="debug-line">${msg}</div>`).join('');
+        debugInfo.scrollTop = 0;
+      }
+    }
+
+    function toggleDebug() {
+      debugShown = !debugShown;
+      debugInfo.classList.toggle('show');
+      if (debugShown) {
+        updateDebugDisplay();
+      }
+    }
+
+    function updateStatus(message, type = 'info') {
+      statusElement.textContent = message;
+      statusElement.className = 'status-' + type;
+      log(message);
+    }
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('.tabBtn').forEach(btn => btn.classList.remove('active'));
+      
+      document.getElementById(tabName).classList.add('active');
+      event.target.classList.add('active');
+
+      if (tabName !== 'ocr' && scanning) {
+        stopScanner();
+      }
+
+      log(`📑 Tab: ${tabName}`);
+    }
+
+    function saveConfig() {
+      const apiKey = resendApiKeyInput.value.trim();
+      const netlifyUrl = netlifyUrlInput.value.trim();
+      const fromEmail = fromEmailInput.value.trim();
+      const toEmail = toEmailInput.value.trim();
+      const logo = logoUrlInput.value.trim();
+      
+      if (!apiKey || !netlifyUrl || !fromEmail || !toEmail) {
+        alert('Alle erforderlichen Felder ausfüllen');
+        log('❌ Erforderliche Felder fehlen');
+        return;
+      }
+      
+      if (!apiKey.startsWith('re_')) {
+        alert('API Key muss mit "re_" beginnen');
+        log('❌ Ungültiger API Key Format');
+        return;
+      }
+      
+      if (!fromEmail.includes('@') || !toEmail.includes('@')) {
+        alert('Gültige Email-Adressen erforderlich');
+        log('❌ Ungültige Email-Adressen');
+        return;
+      }
+
+      if (!netlifyUrl.includes('netlify.app')) {
+        alert('Ungültige Netlify URL');
+        log('❌ Ungültige Netlify URL');
+        return;
+      }
+      
+      localStorage.setItem('resendApiKey', apiKey);
+      localStorage.setItem('netlifyUrl', netlifyUrl);
+      localStorage.setItem('fromEmail', fromEmail);
+      localStorage.setItem('toEmail', toEmail);
+      if (logo) {
+        localStorage.setItem('logoUrl', logo);
+        logoImg.src = logo;
+      }
+      
+      log(`✅ Konfiguration gespeichert`);
+      updateStatus('✓ Gespeichert', 'success');
+    }
+
+    async function testConfig() {
+      const apiKey = resendApiKeyInput.value.trim();
+      const netlifyUrl = netlifyUrlInput.value.trim();
+      const fromEmail = fromEmailInput.value.trim();
+      const toEmail = toEmailInput.value.trim();
+      
+      if (!apiKey || !netlifyUrl || !fromEmail || !toEmail) {
+        alert('Alle Felder erforderlich');
+        log('❌ Felder leer');
+        return;
+      }
+
+      if (!apiKey.startsWith('re_')) {
+        alert('API Key muss mit "re_" beginnen');
+        return;
+      }
+
+      testBtn.disabled = true;
+      updateStatus('🧪 Teste Verbindung...', 'info');
+      log('🧪 Teste Netlify Function...');
+
+      try {
+        const response = await fetch(`${netlifyUrl}/.netlify/functions/send-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            auftragsnummer: '999999999',
+            fromEmail: fromEmail,
+            toEmail: toEmail
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          updateStatus('✓ Test erfolgreich', 'success');
+          log('✅ Email erfolgreich gesendet - Test OK');
+          alert(`✓ Test erfolgreich!\nEmail-ID: ${result.id}`);
+        } else {
+          const error = await response.json();
+          updateStatus(`❌ ${error.error}`, 'error');
+          log(`❌ Fehler: ${error.error}`);
+          alert(`Fehler: ${error.error}`);
+        }
+      } catch (err) {
+        updateStatus(`❌ ${err.message}`, 'error');
+        log(`❌ Fehler: ${err.message}`);
+        alert(`Fehler: ${err.message}\n\nÜberprüfe die Netlify URL!`);
+      } finally {
+        testBtn.disabled = false;
+      }
+    }
+
+    function useManualInput() {
+      const value = manualInputElement.value.trim();
+      if (!/^\d{9}$/.test(value)) {
+        alert('9-stellige Nummer erforderlich');
+        log('❌ Ungültige Nummer: ' + value);
+        return;
+      }
+      
+      if (!value.startsWith('2') && !value.startsWith('4')) {
+        alert('Nummer muss mit 2 oder 4 beginnen');
+        log('❌ Nummer beginnt nicht mit 2 oder 4: ' + value);
+        return;
+      }
+      
+      auftragElement.value = value;
+      updateStatus(`✓ ${value}`, 'success');
+      manualInputElement.value = '';
+      addToHistory(value, 'manual');
+      log(`✅ Manuell: ${value}`);
+      
+      setTimeout(() => sendEmail(value), 500);
+    }
+
+    async function stopScanner() {
+      if (scanning) {
+        scanning = false;
+        if (videoElement.srcObject) {
+          videoElement.srcObject.getTracks().forEach(track => track.stop());
+        }
+        log('🛑 Scanner gestoppt');
+      }
+    }
+
+    async function captureAndOCR() {
+      if (!scanning || videoElement.readyState !== videoElement.HAVE_ENOUGH_DATA) {
+        if (scanning) requestAnimationFrame(captureAndOCR);
+        return;
+      }
+
+      try {
+        const ctx = canvasElement.getContext('2d');
+        canvasElement.width = videoElement.videoWidth;
+        canvasElement.height = videoElement.videoHeight;
+        ctx.drawImage(videoElement, 0, 0);
+        
+        const w = canvasElement.width;
+        const h = canvasElement.height;
+        const cropWidth = Math.floor(w * 0.95);
+        const cropHeight = Math.floor(h * 0.85);
+        const x = (w - cropWidth) / 2;
+        const y = (h - cropHeight) / 2;
+        
+        const croppedCanvas = document.createElement('canvas');
+        croppedCanvas.width = cropWidth;
+        croppedCanvas.height = cropHeight;
+        const croppedCtx = croppedCanvas.getContext('2d');
+        croppedCtx.drawImage(canvasElement, x, y, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+        
+        const imageData = croppedCtx.getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
+        const data = imageData.data;
+        for (let i = 0; i < data.length; i += 4) {
+          const gray = data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114;
+          data[i] = data[i+1] = data[i+2] = gray > 130 ? 255 : 0;
+        }
+        croppedCtx.putImageData(imageData, 0, 0);
+        
+        try {
+          const result = await Tesseract.recognize(croppedCanvas, 'eng', { logger: () => {} });
+          
+          if (result && result.data) {
+            const text = result.data.text;
+            const confidence = result.data.confidence || 0;
+            
+            if (confidence < confidenceThreshold) {
+              if (scanAttempts % 30 === 0) {
+                log(`⚠️ Conf. ${confidence.toFixed(1)}% < ${confidenceThreshold * 100}%`);
+              }
+              scanAttempts++;
+              if (scanning) requestAnimationFrame(captureAndOCR);
+              return;
+            }
+            
+            const digitsOnly = text.replace(/\D/g, '');
+            const match = digitsOnly.match(/^(2\d{8}|4\d{8})$/);
+            
+            if (match) {
+              const nummer = match[1];
+              
+              const now = Date.now();
+              if (nummer !== lastRecognized || (now - lastRecognizedTime > 3000)) {
+                log(`✅ OCR: ${nummer} | Confidence: ${confidence.toFixed(1)}%`);
+                lastRecognized = nummer;
+                lastRecognizedTime = now;
+                auftragElement.value = nummer;
+                updateStatus(`✓ ${nummer}`, 'success');
+                addToHistory(nummer, 'ocr');
+                scanning = false;
+                await stopScanner();
+                
+                setTimeout(() => sendEmail(nummer), 500);
+                return;
+              } else {
+                log(`⏱️ Duplikat gefiltert: ${nummer}`);
+              }
+            } else {
+              if (scanAttempts % 30 === 0 && text.length > 0) {
+                log(`❌ Kein Match: ${digitsOnly.substring(0, 20)}`);
+              }
+            }
+          }
+        } catch (ocrErr) {
+          log(`⚠️ OCR: ${ocrErr.message}`);
+        }
+        
+        scanAttempts++;
+        if (scanAttempts % 25 === 0) {
+          updateStatus(`🔍 Scanning... (${scanAttempts})`, 'info');
+        }
+        
+        if (scanning) requestAnimationFrame(captureAndOCR);
+      } catch (error) {
+        log(`❌ Fehler: ${error.message}`);
+        if (scanning) requestAnimationFrame(captureAndOCR);
+      }
+    }
+
+    async function startScanning() {
+      if (scanning) {
+        await stopScanner();
+        scanBtn.textContent = '🔍 Scan';
+        return;
+      }
+
+      auftragElement.value = '---';
+      lastRecognized = '';
+      lastRecognizedTime = 0;
+      scanAttempts = 0;
+      updateStatus('🎥 Kamera wird aktiviert...', 'info');
+      scanBtn.disabled = true;
+
+      try {
+        log('📸 Starte Scanner...');
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'environment',
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            zoom: { ideal: 2 }
+          },
+          audio: false
+        });
+
+        videoElement.srcObject = stream;
+        
+        videoElement.onloadedmetadata = async () => {
+          await videoElement.play();
+          scanning = true;
+          scanBtn.disabled = false;
+          scanBtn.textContent = '⏹️ Stoppen';
+          updateStatus('📍 Halte Nummer in den Fokus', 'info');
+          log('🎬 Kamera lädt - beginne OCR-Scanning');
+          captureAndOCR();
+        };
+
+      } catch (err) {
+        updateStatus(`❌ ${err.message}`, 'error');
+        log(`❌ Kamera-Fehler: ${err.message}`);
+        scanBtn.disabled = false;
+      }
+    }
+
+    function addToHistory(nummer, type = 'ocr') {
+      const time = new Date().toLocaleTimeString();
+      history.unshift({ 
+        nummer, 
+        time,
+        type,
+        status: 'gesendet'
+      });
+      
+      if (history.length > 5) {
+        history.pop();
+      }
+      
+      updateHistoryDisplay();
+      saveHistoryToStorage();
+    }
+
+    function updateHistoryDisplay() {
+      if (history.length === 0) {
+        historyList.innerHTML = '<div style="color: #666; font-size: 0.8rem; padding: 10px;">Keine Aufträge</div>';
+      } else {
+        historyList.innerHTML = history.map((item) => `
+          <div class="history-item">
+            <span class="history-number">${item.nummer}</span>
+            <span class="history-status">✓</span>
+            <span class="history-time">${item.time}</span>
+          </div>
+        `).join('');
+      }
+    }
+
+    function toggleHistory() {
+      historySection.style.display = historySection.style.display === 'none' ? 'block' : 'none';
+      log(`📋 Verlauf ${historySection.style.display === 'none' ? 'versteckt' : 'gezeigt'}`);
+    }
+
+    async function sendEmail(auftragsnummer) {
+      const netlifyUrl = localStorage.getItem('netlifyUrl');
+      const fromEmail = localStorage.getItem('fromEmail');
+      const toEmail = localStorage.getItem('toEmail');
+      
+      if (!netlifyUrl || !fromEmail || !toEmail) {
+        updateStatus('❌ Konfiguration erforderlich', 'error');
+        log('❌ Konfiguration fehlt');
+        alert('Bitte Config einrichten');
+        return;
+      }
+
+      updateStatus('📤 Sende Email...', 'info');
+      log(`📨 Sende Email: ${auftragsnummer}`);
+
+      try {
+        const response = await fetch(`${netlifyUrl}/.netlify/functions/send-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            auftragsnummer,
+            fromEmail,
+            toEmail
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          updateStatus(`✓ ${auftragsnummer}`, 'success');
+          auftragElement.value = '---';
+          log(`✅ Email gesendet: ${auftragsnummer} (ID: ${result.id})`);
+          
+          setTimeout(() => {
+            auftragElement.value = '---';
+            updateStatus('📱 Ready', 'info');
+          }, 2000);
+        } else {
+          const error = await response.json();
+          updateStatus(`❌ ${error.error}`, 'error');
+          log(`❌ Fehler: ${error.error}`);
+          alert(`Fehler: ${error.error}`);
+        }
+      } catch (err) {
+        updateStatus(`❌ ${err.message}`, 'error');
+        log(`❌ Fehler: ${err.message}`);
+        alert(`Fehler: ${err.message}`);
+      }
+    }
+  </script>
+</body>
+</html>
