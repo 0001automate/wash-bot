@@ -1,0 +1,15 @@
+{
+  "name": "wash-bot",
+  "version": "1.0.0",
+  "description": "Wash Bot - Scanner with Netlify Email Function",
+  "main": "index.html",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["wash", "bot", "scanner"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "netlify-cli": "^latest"
+  }
+}
